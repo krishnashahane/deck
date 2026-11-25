@@ -1,0 +1,13 @@
+export * from './model';
+export * from './factory';
+export * from './themes';
+export * from './layouts';
+export * from './ops';
+export * from './animation';
+export * from './templates';
+export * from './ydoc';
+export * from './security';
+export { parseXml, UnsafeXmlError } from './xml';
+export { exportPptx, chartXml, type ExportOptions, type ExportResult } from './pptx/export';
+export { importPptx, resolvePart, type ImportResult } from './pptx/import';
+export { inspectPptx, type PackageReport } from './pptx/inspect';
