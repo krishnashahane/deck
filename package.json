@@ -1,0 +1,30 @@
+{
+  "name": "deck",
+  "private": true,
+  "version": "0.1.0",
+  "description": "DECK — a secure, collaborative presentation editor",
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "engines": {
+    "node": ">=22.19"
+  },
+  "scripts": {
+    "dev": "npm run dev -w @deck/server & npm run dev -w @deck/web",
+    "dev:web": "npm run dev -w @deck/web",
+    "dev:server": "npm run dev -w @deck/server",
+    "build": "npm run build -w @deck/web",
+    "typecheck": "tsc -p packages/core && tsc -p apps/web && tsc -p apps/server",
+    "test": "vitest run",
+    "test:e2e": "playwright test",
+    "audit": "npm audit --omit=dev"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.10",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vitest": "^5.1.2"
+  }
+}
