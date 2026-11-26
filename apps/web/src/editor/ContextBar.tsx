@@ -2,7 +2,7 @@ import { FONT_FAMILIES, safeHref, themePalette, type Paragraph, type SlideElemen
 import { useEditor, type EditorStore } from '../lib/store';
 import { Icon } from './icons';
 import { ColorPicker, Popover, MenuItem } from './ui';
-import { deleteSelection, duplicateSelection, groupSelection, ungroupSelection, zorder } from './actions';
+import { deleteSelection, duplicateSelection, groupSelection, startPainter, ungroupSelection, zorder } from './actions';
 import { selectedBlocks } from './richtext';
 import { toast } from '../lib/toast';
 
@@ -172,6 +172,7 @@ export function ContextBar({ store, anchor, hostHeight }: { store: EditorStore; 
               <ColorPicker label="Fill" allowNone value={fillVal ?? '#00000000'} palette={palette} onChange={(c) => store.updateElements(fillable.map((f) => f.id), (e) => (e.type === 'shape' || e.type === 'text' ? { ...e, fill: c === '#00000000' ? { kind: 'none' } : { kind: 'solid', color: c } } : e))} />
             </span>
           )}
+          <button className={`btn icon ${store.ui.painter ? 'on' : ''}`} aria-label="Format painter" aria-pressed={Boolean(store.ui.painter)} title="Format painter — click to copy this style to one object, double-click to keep it on" onClick={(e) => startPainter(store, e.detail > 1)}><Icon name="brush" /></button>
           {sel.length > 1 && <button className="btn icon" aria-label="Group" title="Group ⌘G" onClick={() => groupSelection(store)}><Icon name="group" /></button>}
           {sel.some((e) => e.groupId) && <button className="btn" onClick={() => ungroupSelection(store)}>Ungroup</button>}
           <Popover align="end" trigger={(open) => <button className="btn icon" aria-label="More" onClick={open}><Icon name="more" /></button>}>

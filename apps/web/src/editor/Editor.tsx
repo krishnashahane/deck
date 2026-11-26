@@ -11,6 +11,7 @@ import { Palette, buildCommands } from './Palette';
 import { Dialogs } from './Dialogs';
 import { Comments } from './Comments';
 import { FindReplace } from './FindReplace';
+import { Sorter } from './Sorter';
 import * as A from './actions';
 import { Show, visibleSlides } from '../present/Show';
 import { SlideView } from '../render/SlideView';
@@ -40,6 +41,10 @@ export function Editor({ store, docId, user, provider, serverId, role, theme, se
       { id: 'print', group: 'Export', label: 'PDF / Print', icon: 'printer', kbd: '⌘P', run: () => printDeck(setPrinting) },
       { id: 'find', group: 'Edit', label: 'Find', icon: 'search', kbd: '⌘F', run: () => setFind('find') },
       { id: 'replace', group: 'Edit', label: 'Find and replace', icon: 'search', kbd: '⇧⌘H', run: () => setFind('replace') },
+      { id: 'sorter', group: 'View', label: 'Slide sorter', icon: 'layout', kbd: '⌥⌘S', run: () => store.setUi({ sorter: true }) },
+      { id: 'copystyle', group: 'Edit', label: 'Copy style', icon: 'brush', kbd: '⌥⌘C', run: () => A.copyFormat(store) },
+      { id: 'pastestyle', group: 'Edit', label: 'Paste style', icon: 'brush', kbd: '⌥⌘V', run: () => A.pasteFormat(store) },
+      { id: 'painter', group: 'Edit', label: 'Format painter', icon: 'brush', run: () => A.startPainter(store) },
       { id: 'history', group: 'File', label: 'Version history', icon: 'history', run: () => store.setUi({ dialog: 'history' }) },
       { id: 'share', group: 'File', label: 'Share', icon: 'share', run: () => store.setUi({ dialog: 'share' }) },
     ]),
@@ -56,6 +61,7 @@ export function Editor({ store, docId, user, provider, serverId, role, theme, se
       if (mod && e.key === 'Enter') { e.preventDefault(); e.shiftKey ? play(true) : ui.selection.length || ui.editingId ? play(false) : A.addSlide(store); return; }
       if (mod && !e.altKey && e.key.toLowerCase() === 'f' && !ui.editingId) { e.preventDefault(); setFind('find'); return; }
       if (mod && e.shiftKey && e.key.toLowerCase() === 'h' && !readOnly) { e.preventDefault(); setFind('replace'); return; }
+      if (mod && e.altKey && e.code === 'KeyS') { e.preventDefault(); store.setUi({ sorter: !store.ui.sorter }); return; }
       if (mod && e.key.toLowerCase() === 'p') { e.preventDefault(); printDeck(setPrinting); return; }
       if (typing) {
         if (ui.editingId && mod && ['b', 'i', 'u'].includes(e.key.toLowerCase())) {
@@ -70,6 +76,8 @@ export function Editor({ store, docId, user, provider, serverId, role, theme, se
         return;
       }
       const k = e.key;
+      if (mod && e.altKey && e.code === 'KeyC') { e.preventDefault(); A.copyFormat(store); return; }
+      if (mod && e.altKey && e.code === 'KeyV') { e.preventDefault(); A.pasteFormat(store); return; }
       if (mod && k.toLowerCase() === 'z') { e.preventDefault(); e.shiftKey ? store.redo() : store.undo(); return; }
       if (mod && k.toLowerCase() === 'y') { e.preventDefault(); store.redo(); return; }
       if (mod && k.toLowerCase() === 'd') { e.preventDefault(); A.duplicateSelection(store); return; }
@@ -109,7 +117,7 @@ export function Editor({ store, docId, user, provider, serverId, role, theme, se
       }
       if (k === 'PageDown') { e.preventDefault(); nav(1); return; }
       if (k === 'PageUp') { e.preventDefault(); nav(-1); return; }
-      if (k === 'Escape') { store.setUi({ selection: [], tool: 'select', editingId: null }); return; }
+      if (k === 'Escape') { if (ui.sorter) { store.setUi({ sorter: false }); return; } store.setUi({ selection: [], tool: 'select', editingId: null, painter: null }); return; }
       if (k === 'Enter' && ui.selection.length === 1) {
         const el = store.selected[0];
         if (el && (el.type === 'text' || el.type === 'shape')) { e.preventDefault(); store.setUi({ editingId: el.id }); }
@@ -166,6 +174,7 @@ export function Editor({ store, docId, user, provider, serverId, role, theme, se
       {ui.inspectorOpen && !readOnly && <Inspector store={store} />}
       {serverId && user && <Comments store={store} serverId={serverId} role={role} />}
       {ui.palette && <Palette store={store} commands={commands} onClose={() => store.setUi({ palette: false })} />}
+      {ui.sorter && <Sorter store={store} onClose={() => store.setUi({ sorter: false })} onPlay={(i) => { store.setUi({ sorter: false }); setShow(i); }} />}
       <Dialogs store={store} docId={docId} user={user} serverId={serverId} onMakeCloud={onMakeCloud} />
       {printing && createPortal(<PrintRoot store={store} />, document.getElementById('root')!)}
     </div>

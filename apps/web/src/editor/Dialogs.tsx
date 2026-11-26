@@ -57,6 +57,8 @@ function Share({ store, user, serverId, onClose, onMakeCloud }: { store: EditorS
   const [hours, setHours] = useState(168);
   const [newLink, setNewLink] = useState<string | null>(null);
   const [myRole, setMyRole] = useState<Role | null>(null);
+  const [activity, setActivity] = useState<DocActivity[]>([]);
+  const [showActivity, setShowActivity] = useState(false);
   useEffect(() => { void serverAvailable().then(setUp); }, []);
   const load = async () => {
     if (!serverId) return;
@@ -65,6 +67,7 @@ function Share({ store, user, serverId, onClose, onMakeCloud }: { store: EditorS
     if (d.role !== 'owner') return;
     setMembers(await api<Member[]>(`/docs/${serverId}/members`));
     setLinks(await api<Link[]>(`/docs/${serverId}/links`));
+    setActivity(await api<DocActivity[]>(`/docs/${serverId}/activity`).catch(() => []));
   };
   useEffect(() => { void load().catch((e) => toast(e.message)); }, [serverId]);
 
@@ -111,6 +114,24 @@ function Share({ store, user, serverId, onClose, onMakeCloud }: { store: EditorS
           <button className="btn danger" onClick={async () => { await api(`/docs/${serverId}/links/${l.id}`, { method: 'DELETE' }); await load(); }}>Revoke</button>
         </div>
       ))}
+      {myRole === 'owner' && activity.length > 0 && (
+        <>
+          <button className="btn ghost-strong" aria-expanded={showActivity} style={{ alignSelf: 'flex-start' }} onClick={() => setShowActivity((v) => !v)}>
+            <Icon name="history" />{showActivity ? 'Hide' : 'Show'} access activity ({activity.length})
+          </button>
+          {showActivity && (
+            <ul className="activity" aria-label="Access activity">
+              {activity.slice(0, 50).map((a, i) => (
+                <li key={i}>
+                  <Icon name={a.action.startsWith('link') ? 'link' : a.action.startsWith('member') ? 'user' : 'history'} />
+                  <span>{describeActivity(a)}</span>
+                  <small className="label">{new Date(a.at).toLocaleString()}</small>
+                </li>
+              ))}
+            </ul>
+          )}
+        </>
+      )}
     </Dialog>
   );
 }
@@ -323,4 +344,23 @@ function Brand({ store, onClose }: { store: EditorStore; onClose: () => void }) 
       )}
     </Dialog>
   );
+}
+
+interface DocActivity { at: string; action: string; actor: { name: string; email: string } | null; target: { name: string; email: string } | null; role?: string; hours?: number }
+
+function describeActivity(a: DocActivity): string {
+  const who = a.actor ? a.actor.name || a.actor.email : 'Someone';
+  const whom = a.target ? a.target.name || a.target.email : 'a collaborator';
+  switch (a.action) {
+    case 'doc.create': return `${who} uploaded the presentation`;
+    case 'member.add': return `${who} invited ${whom} as ${a.role ?? 'member'}`;
+    case 'member.role': return `${who} changed ${whom} to ${a.role ?? 'a new role'}`;
+    case 'member.remove': return `${who} removed ${whom}`;
+    case 'link.create': return `${who} created a ${a.role ?? ''} link${a.hours ? ` (expires in ${a.hours < 48 ? `${a.hours} h` : `${Math.round(a.hours / 24)} days`})` : ' with no expiry'}`;
+    case 'link.revoke': return `${who} revoked a share link`;
+    case 'link.accept': return `${who} joined using a share link`;
+    case 'version.restore': return `${who} restored an earlier version`;
+    case 'sync.kick': return `A collaborator lost access and was disconnected`;
+    default: return `${who}: ${a.action}`;
+  }
 }

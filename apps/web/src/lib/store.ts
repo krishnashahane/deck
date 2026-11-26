@@ -23,6 +23,10 @@ export interface UiState {
   palette: boolean;
   dialog: null | 'import-report' | 'share' | 'ai' | 'shortcuts' | 'history' | 'export' | 'size' | 'brand';
   inspectorOpen: boolean;
+  /** Format painter: the next click on an object applies this style (sticky keeps it armed). */
+  painter: { style: import('@deck/core').StyleSnapshot; sticky: boolean } | null;
+  /** Full-screen slide sorter. */
+  sorter: boolean;
   /** Viewer/commenter roles: every document mutation is refused client-side (and server-side). */
   readOnly: boolean;
 }
@@ -46,6 +50,8 @@ const initialUi: UiState = {
   dialog: null,
   inspectorOpen: true,
   readOnly: false,
+  painter: null,
+  sorter: false,
 };
 
 type Listener = () => void;

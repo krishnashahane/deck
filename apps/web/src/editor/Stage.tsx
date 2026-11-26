@@ -3,8 +3,11 @@ import { bounds, uid, createLine, createShape, createText, moveLineWith, para, r
 import { SlideView, resolveConnector } from '../render/SlideView';
 import { useEditor, type EditorStore } from '../lib/store';
 import { fromEditableDom, toEditableHtml } from './richtext';
-import { insertFiles } from './actions';
+import * as A from './actions';
+import { ContextMenu, tidy, type MenuEntry } from './ContextMenu';
+import { expandToGroups } from '@deck/core';
 import { ContextBar } from './ContextBar';
+import { Icon } from './icons';
 import type { Awareness } from 'y-protocols/awareness';
 
 type Pt = { x: number; y: number };
@@ -150,6 +153,15 @@ export function Stage({ store, awareness }: { store: EditorStore; awareness?: Aw
       return;
     }
     const hit = hitTest(slide.elements, p, byId);
+    if (ui.painter) {
+      if (hit) {
+        const ids = [...expandToGroups(slide, new Set([hit.id]))];
+        A.pasteFormat(store, ids);
+        store.select(ids);
+      }
+      if (!hit || !ui.painter.sticky) store.setUi({ painter: null });
+      return;
+    }
     if (hit) {
       let ids = ui.selection;
       if (e.shiftKey || e.metaKey || e.ctrlKey) {
@@ -325,6 +337,53 @@ export function Stage({ store, awareness }: { store: EditorStore; awareness?: Aw
     }
   };
 
+  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
+  const onContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (ui.readOnly) return;
+    if (ui.editingId) { commitEditing(); store.setUi({ editingId: null }); }
+    const hit = hitTest(slide.elements, toSlide(e), byId);
+    if (hit && !ui.selection.includes(hit.id)) store.select([hit.id]);
+    if (!hit) store.select([]);
+    setMenu({ x: e.clientX, y: e.clientY });
+  };
+  const menuItems = (): MenuEntry[] => {
+    const sel = store.selected;
+    const n = sel.length;
+    const locked = n > 0 && sel.every((x) => x.locked);
+    const grouped = sel.some((x) => x.groupId);
+    if (!n) {
+      return tidy([
+        { label: 'Paste', icon: 'copy', kbd: '⌘V', run: () => void A.paste(store) },
+        'sep',
+        { label: 'Select all', kbd: '⌘A', run: () => store.select(slide.elements.map((x) => x.id)) },
+        { label: 'Text box', icon: 'text', kbd: 'T', run: () => A.insertText(store) },
+        { label: 'New slide', icon: 'plus', kbd: '⌘⏎', run: () => A.addSlide(store) },
+        'sep',
+        { label: ui.showGrid ? 'Hide grid' : 'Show grid', icon: 'grid', kbd: "⌘'", run: () => store.setUi({ showGrid: !ui.showGrid }) },
+        { label: 'Slide sorter', icon: 'layout', run: () => store.setUi({ sorter: true }) },
+      ]);
+    }
+    return tidy([
+      { label: 'Cut', kbd: '⌘X', run: () => void A.copy(store, true), disabled: locked },
+      { label: 'Copy', icon: 'copy', kbd: '⌘C', run: () => void A.copy(store) },
+      { label: 'Paste', kbd: '⌘V', run: () => void A.paste(store) },
+      { label: 'Duplicate', kbd: '⌘D', run: () => A.duplicateSelection(store) },
+      'sep',
+      { label: 'Copy style', icon: 'brush', kbd: '⌥⌘C', run: () => A.copyFormat(store) },
+      { label: 'Paste style', kbd: '⌥⌘V', run: () => A.pasteFormat(store), disabled: !A.hasCopiedStyle() || locked },
+      'sep',
+      { label: 'Bring to front', icon: 'front', kbd: '⇧⌘]', run: () => A.zorder(store, 'front') },
+      { label: 'Send to back', icon: 'back', kbd: '⇧⌘[', run: () => A.zorder(store, 'back') },
+      n > 1 && !grouped && { label: 'Group', icon: 'group', kbd: '⌘G', run: () => A.groupSelection(store) },
+      grouped && { label: 'Ungroup', icon: 'group', kbd: '⇧⌘G', run: () => A.ungroupSelection(store) },
+      { label: locked ? 'Unlock' : 'Lock', icon: locked ? 'unlock' : 'lock', kbd: '⇧⌘L', run: () => store.updateElements(ui.selection, (x) => ({ ...x, locked: !locked || undefined })) },
+      n === 1 && (sel[0]!.type === 'text' || sel[0]!.type === 'shape') && !locked && { label: 'Edit text', icon: 'text', kbd: '⏎', run: () => store.setUi({ editingId: sel[0]!.id }) },
+      'sep',
+      { label: n > 1 ? `Delete ${n} objects` : 'Delete', icon: 'trash', kbd: '⌫', run: () => A.deleteSelection(store), danger: true, disabled: locked },
+    ]);
+  };
+
   const onDoubleClick = (e: React.MouseEvent) => {
     const p = toSlide(e);
     const hit = hitTest(slide.elements, p, byId);
@@ -380,14 +439,14 @@ export function Stage({ store, awareness }: { store: EditorStore; awareness?: Aw
   const onDrop = (e: React.DragEvent) => {
     e.preventDefault();
     const files = Array.from(e.dataTransfer.files).filter((f) => !/\.(pptx|potx)$/i.test(f.name));
-    if (files.length) void insertFiles(store, files, toSlide(e));
+    if (files.length) void A.insertFiles(store, files, toSlide(e));
   };
 
   const single = selected.length === 1 ? selected[0]! : null;
   const selBox = selected.length ? bounds(selected.map((s) => (s.type === 'line' ? resolveConnector(s, byId) : s)).map((s) => ({ x: s.x, y: s.y, w: s.w, h: s.h }))) : null;
   const editing = ui.editingId ? byId.get(ui.editingId) : undefined;
   const hiddenSet = editing ? new Set([editing.id]) : undefined;
-  const cursor = space || ui.tool === 'pan' ? (drag?.kind === 'pan' ? 'grabbing' : 'grab') : ui.tool !== 'select' ? 'crosshair' : drag?.kind === 'move' ? 'move' : hover ? 'move' : 'default';
+  const cursor = ui.painter ? 'copy' : space || ui.tool === 'pan' ? (drag?.kind === 'pan' ? 'grabbing' : 'grab') : ui.tool !== 'select' ? 'crosshair' : drag?.kind === 'move' ? 'move' : hover ? 'move' : 'default';
 
   return (
     <div className="stage" ref={wrapRef} onDragOver={(e) => e.preventDefault()} onDrop={onDrop}>
@@ -414,11 +473,12 @@ export function Stage({ store, awareness }: { store: EditorStore; awareness?: Aw
               onPointerUp={onPointerUp}
               onPointerLeave={() => setHover(null)}
               onDoubleClick={onDoubleClick}
+              onContextMenu={onContextMenu}
             >
               {hover && !ui.selection.includes(hover) && byId.get(hover) && <HoverBox el={byId.get(hover)!} scale={scale} />}
               {selected.map((s) => (s.type === 'line' ? null : <RotBox key={s.id} el={s} scale={scale} dashed={Boolean(s.groupId)} />))}
               {selBox && selected.length > 1 && <div className="sel-box group" style={{ left: selBox.x * scale - 1, top: selBox.y * scale - 1, width: selBox.w * scale + 2, height: selBox.h * scale + 2, borderColor: 'var(--select)', opacity: 0.6 }} />}
-              {selBox && !editing && !(single?.type === 'line') && !selected.every((s) => s.locked) && (
+              {selBox && !editing && !ui.painter && !(single?.type === 'line') && !selected.every((s) => s.locked) && (
                 <>
                   {HANDLES.map((h) => {
                     const hx = h.includes('w') ? selBox.x : h.includes('e') ? selBox.x + selBox.w : selBox.x + selBox.w / 2;
@@ -430,7 +490,7 @@ export function Stage({ store, awareness }: { store: EditorStore; awareness?: Aw
                   <div className="handle rot" data-handle="rot" style={{ left: (selBox.x + selBox.w / 2) * scale, top: selBox.y * scale - 26 }} onPointerDown={(e) => startHandle(e, 'rot')} onPointerMove={onPointerMove} onPointerUp={onPointerUp} title="Rotate (Shift snaps to 15°)" />
                 </>
               )}
-              {single?.type === 'line' && !editing && (() => {
+              {single?.type === 'line' && !editing && !ui.painter && (() => {
                 const l = resolveConnector(single, byId);
                 return ([1, 2] as const).map((end) => (
                   <div
@@ -478,10 +538,12 @@ export function Stage({ store, awareness }: { store: EditorStore; awareness?: Aw
               <TextEditor key={editing.id} store={store} el={editing} scale={scale} onCommit={commitEditing} />
             )}
             {cellEdit && byId.get(cellEdit.id)?.type === 'table' && <CellEditor store={store} el={byId.get(cellEdit.id) as Extract<SlideElement, { type: 'table' }>} r={cellEdit.r} c={cellEdit.c} scale={scale} onDone={() => setCellEdit(null)} onMove={(r, c) => setCellEdit({ id: cellEdit.id, r, c })} />}
-            {selBox && !drag && !ui.readOnly && selected.length > 0 && <ContextBar store={store} anchor={{ x: selBox.x * scale, y: selBox.y * scale, w: selBox.w * scale, h: selBox.h * scale }} hostHeight={sh} />}
+            {selBox && !drag && !ui.readOnly && !ui.painter && selected.length > 0 && <ContextBar store={store} anchor={{ x: selBox.x * scale, y: selBox.y * scale, w: selBox.w * scale, h: selBox.h * scale }} hostHeight={sh} />}
           </div>
         </div>
       </div>
+      {ui.painter && <div className="painter-hint" role="status"><Icon name="brush" /> Click an object to apply the style{ui.painter.sticky ? ' · stays on until Esc' : ''}</div>}
+      {menu && <ContextMenu x={menu.x} y={menu.y} items={menuItems()} onClose={() => setMenu(null)} label={store.selected.length ? 'Object actions' : 'Slide actions'} />}
     </div>
   );
 }

@@ -27,6 +27,7 @@ import {
   type ZOp,
 } from '@deck/core';
 import type { EditorStore } from '../lib/store';
+import { copyStyle, pasteStyle, type StyleSnapshot } from '@deck/core';
 import { addFile } from '../lib/assets';
 import { toast } from '../lib/toast';
 
@@ -324,3 +325,31 @@ export function duplicateSelection(store: EditorStore) {
 }
 
 export { CLIP_PREFIX, bounds };
+
+// ---- Format painter -------------------------------------------------------
+let styleClip: StyleSnapshot | null = null;
+
+export const hasCopiedStyle = () => styleClip !== null;
+
+export function copyFormat(store: EditorStore) {
+  const el = store.selected[0];
+  if (!el) { toast('Select an object to copy its style'); return; }
+  styleClip = copyStyle(el);
+  toast('Style copied · ⌥⌘V to apply it to other objects');
+}
+
+export function pasteFormat(store: EditorStore, ids: string[] = store.ui.selection) {
+  if (!styleClip) { toast('Copy a style first (⌥⌘C)'); return; }
+  const s = styleClip;
+  const targets = ids.filter((id) => !store.slide?.elements.find((e) => e.id === id)?.locked);
+  if (targets.length) store.updateElements(targets, (e) => pasteStyle(e, s));
+}
+
+/** Arm the painter from the current selection; sticky keeps it armed until Esc. */
+export function startPainter(store: EditorStore, sticky = false) {
+  if (store.ui.painter) { store.setUi({ painter: null }); return; }
+  const el = store.selected[0];
+  if (!el) { toast('Select an object, then use the format painter to copy its style'); return; }
+  styleClip = copyStyle(el);
+  store.setUi({ painter: { style: styleClip, sticky }, tool: 'select', editingId: null });
+}

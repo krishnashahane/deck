@@ -80,6 +80,7 @@ const P: Record<string, string> = {
   file: 'M4 1.5h5.5L12.5 4.5v10H4zM9.5 1.5v3h3',
   comment: 'M2.5 3h11v8H7l-3 2.5V11H2.5z',
   crop: 'M4 1.5v10.5h10.5M1.5 4H12v10.5',
+  brush: 'M10 2.5l3.5 3.5-5.5 5.5H4.5V8zM8.5 4l3.5 3.5M3 14h5',
   wand: 'M3 13l7-7M9 3l.5 1.5L11 5l-1.5.5L9 7l-.5-1.5L7 5l1.5-.5zM12.5 8.5l.3 1 1 .3-1 .3-.3 1-.3-1-1-.3 1-.3z',
 };
 

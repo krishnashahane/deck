@@ -16,6 +16,7 @@ export function Account({ resetToken }: { resetToken?: string }) {
   const [needTotp, setNeedTotp] = useState(false);
   const [err, setErr] = useState('');
   const [sessions, setSessions] = useState<Session[]>([]);
+  const [activity, setActivity] = useState<{ at: string; action: string; ip: string | null }[]>([]);
   const [mfa, setMfa] = useState<{ secret: string; otpauth: string } | null>(null);
   const [code, setCode] = useState('');
 
@@ -23,6 +24,7 @@ export function Account({ resetToken }: { resetToken?: string }) {
     const u = await me();
     setUser(u);
     if (u) setSessions(await api<Session[]>('/auth/sessions').catch(() => []));
+    if (u) setActivity(await api<typeof activity>('/auth/activity').catch(() => []));
   };
   useEffect(() => { void serverAvailable().then(setUp); void refresh(); }, []);
 
@@ -85,6 +87,24 @@ export function Account({ resetToken }: { resetToken?: string }) {
         ))}
         <button className="btn ghost-strong" onClick={async () => { await api('/auth/sessions/revoke-others', { body: {} }); await refresh(); toast('Signed out everywhere else'); }}>Sign out all other sessions</button>
       </section>
+      <section className="sect" style={{ paddingLeft: 0, paddingRight: 0 }}>
+        <h4>Recent security activity</h4>
+        {activity.length === 0 ? <p className="label">No activity yet.</p> : (
+          <ul className="activity" aria-label="Recent security activity">
+            {activity.slice(0, 12).map((a, i) => {
+              const bad = a.action === 'auth.fail' || a.action === 'auth.mfa_fail' || a.action === 'auth.locked';
+              return (
+                <li key={i} className={bad ? 'warn' : ''}>
+                  <Icon name={bad ? 'warn' : 'check'} />
+                  <span>{SECURITY_LABELS[a.action] ?? a.action}</span>
+                  <small className="label">{new Date(a.at).toLocaleString()}{a.ip ? ` · ${a.ip}` : ''}</small>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+        {activity.some((a) => a.action === 'auth.fail' || a.action === 'auth.locked') && <div className="issue warn"><Icon name="warn" /><span>There were failed sign-in attempts. If they weren’t you, change your password and turn on two-step verification.</span></div>}
+      </section>
       <div className="row"><a className="btn ghost-strong" href="#/">Back to presentations</a><span className="spacer" /><button className="btn danger" onClick={async () => { await api('/auth/logout', { body: {} }); setUser(null); }}><Icon name="logout" />Sign out</button></div>
     </Shell>
   );
@@ -117,3 +137,17 @@ function Shell({ children }: { children: React.ReactNode }) {
     </div>
   );
 }
+
+const SECURITY_LABELS: Record<string, string> = {
+  'user.register': 'Account created',
+  'auth.login': 'Signed in',
+  'auth.fail': 'Failed sign-in attempt',
+  'auth.mfa_fail': 'Wrong verification code',
+  'auth.locked': 'Account temporarily locked after failed attempts',
+  'auth.recover': 'Password reset requested',
+  'auth.reset': 'Password changed — all sessions signed out',
+  'mfa.enable': 'Two-step verification turned on',
+  'mfa.disable': 'Two-step verification turned off',
+  'session.revoke': 'A session was signed out',
+  'session.revoke_others': 'Signed out of all other sessions',
+};
