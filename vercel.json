@@ -2,7 +2,7 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
   "installCommand": "npm ci --no-audit --no-fund",
-  "buildCommand": "npm run build -w apps/web",
+  "buildCommand": "VITE_DECK_STATIC=1 npm run build -w apps/web",
   "outputDirectory": "apps/web/dist",
   "cleanUrls": true,
   "trailingSlash": false,

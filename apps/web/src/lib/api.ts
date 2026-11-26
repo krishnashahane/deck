@@ -27,6 +27,8 @@ export async function api<T>(path: string, init: { method?: string; body?: unkno
 let serverUp: boolean | null = null;
 export async function serverAvailable(): Promise<boolean> {
   if (serverUp !== null) return serverUp;
+  // Static hosting (no API behind this origin): skip the probe entirely.
+  if (import.meta.env.VITE_DECK_STATIC === '1') return (serverUp = false);
   try {
     const r = await fetch('/api/health', { credentials: 'same-origin' });
     serverUp = r.ok && (await r.json()).ok === true;
