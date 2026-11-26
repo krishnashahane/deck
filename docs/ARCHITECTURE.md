@@ -51,3 +51,15 @@ Express with JSON APIs under `/api`, a WebSocket endpoint at `/sync/:docId`, Pos
 
 ## AI layer
 Provider-independent interface in the client (`lib/ai.ts`): an on-device heuristic provider and a server provider. The server provider calls the Anthropic Messages API with structured JSON output, refusal fallbacks enabled and a server-owned system prompt. Results are proposals shown as diffs; accepting applies them as a normal undoable change.
+
+## Performance
+
+Measured on the production build (`npm run build`, gzip sizes) and in the Playwright suite.
+
+| What | Result |
+|---|---|
+| JavaScript loaded for the home screen | ≈ 150 kB (React 68, app shell 31, Yjs 29, XML parser 22) — down from ≈ 327 kB in a single bundle |
+| Loaded on demand | Editor 40 kB, slideshow 5 kB, presenter 1.7 kB, account 2.2 kB, maths engine 78 kB + CSS (only when a slide contains an equation), ZIP engine 29 kB (only on `.pptx` import/export) |
+| Import + open a 300-slide presentation | ≈ 1.1 s; 20 slide navigations ≈ 0.25 s |
+
+How: routes are split with `React.lazy`; the maths renderer shows the LaTeX source until its engine loads; `@deck/core` is marked side-effect free so unused file-format code is tree-shaken; vendor code is grouped into long-cacheable chunks (`react`, `yjs`, `xml`, `zip`); the slide rail renders only visible thumbnails.

@@ -29,7 +29,7 @@ npm run typecheck
 npm run audit             # npm dependency audit
 ```
 
-Current results: **51 unit/integration tests** and **10 end-to-end tests** pass (e2e suite green on repeated runs); `npm audit` reports 0 vulnerabilities.
+Current results: **51 unit/integration tests** and **11 end-to-end tests** pass (e2e suite green on repeated runs); `npm audit` reports 0 vulnerabilities.
 
 ## Project layout
 
