@@ -227,7 +227,7 @@ function Assistant({ store, user, onClose }: { store: EditorStore; user: User | 
 }
 
 const SHORTCUTS: [string, string][] = [
-  ['⌘K', 'Command palette'], ['⌘⏎', 'New slide / play (⇧ from start)'], ['⌘Z / ⇧⌘Z', 'Undo / redo'], ['⌘C ⌘X ⌘V', 'Copy, cut, paste'], ['⌘D', 'Duplicate'], ['⌫', 'Delete'],
+  ['⌘K', 'Command palette'], ['⌘F', 'Find'], ['⇧⌘H', 'Find and replace'], ['⌘⏎', 'New slide / play (⇧ from start)'], ['⌘Z / ⇧⌘Z', 'Undo / redo'], ['⌘C ⌘X ⌘V', 'Copy, cut, paste'], ['⌘D', 'Duplicate'], ['⌫', 'Delete'],
   ['⌘G / ⇧⌘G', 'Group / ungroup'], ['⌘] / ⌘[', 'Forward / backward (⇧ front / back)'], ['Arrows', 'Nudge (⇧ ×10)'], ['⌘A', 'Select all'], ['Enter', 'Edit text'], ['Esc', 'Stop editing / deselect'],
   ['T R L', 'Text, shape, line tools'], ['Space + drag', 'Pan'], ['⌘ scroll / pinch', 'Zoom'], ['⌘0 / ⌘1', 'Fit / 100%'], ["⌘'", 'Grid'], ['⇧ drag', 'Constrain'], ['⌥ drag', 'Duplicate while dragging'], ['⌘ drag', 'Disable snapping'],
   ['⌘B ⌘I ⌘U', 'Bold, italic, underline'], ['Tab / ⇧Tab', 'Indent list level'], ['PgUp / PgDn', 'Previous / next slide'],

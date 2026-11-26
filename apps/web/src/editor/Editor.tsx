@@ -10,6 +10,7 @@ import { Bottom } from './Bottom';
 import { Palette, buildCommands } from './Palette';
 import { Dialogs } from './Dialogs';
 import { Comments } from './Comments';
+import { FindReplace } from './FindReplace';
 import * as A from './actions';
 import { Show, visibleSlides } from '../present/Show';
 import { SlideView } from '../render/SlideView';
@@ -20,6 +21,7 @@ export function Editor({ store, docId, user, provider, serverId, role, theme, se
   const { pres, ui } = useEditor(store, (s) => s);
   const [show, setShow] = useState<number | null>(null);
   const [printing, setPrinting] = useState(false);
+  const [find, setFind] = useState<null | 'find' | 'replace'>(null);
   const readOnly = role === 'viewer' || role === 'commenter';
   useEffect(() => {
     if (store.ui.readOnly !== readOnly) store.setUi({ readOnly, inspectorOpen: !readOnly && store.ui.inspectorOpen });
@@ -36,6 +38,8 @@ export function Editor({ store, docId, user, provider, serverId, role, theme, se
       { id: 'play', group: 'Present', label: 'Play from current slide', icon: 'play', kbd: '⌘⏎', run: () => play(false) },
       { id: 'play0', group: 'Present', label: 'Play from beginning', icon: 'play', kbd: '⇧⌘⏎', run: () => play(true) },
       { id: 'print', group: 'Export', label: 'PDF / Print', icon: 'printer', kbd: '⌘P', run: () => printDeck(setPrinting) },
+      { id: 'find', group: 'Edit', label: 'Find', icon: 'search', kbd: '⌘F', run: () => setFind('find') },
+      { id: 'replace', group: 'Edit', label: 'Find and replace', icon: 'search', kbd: '⇧⌘H', run: () => setFind('replace') },
       { id: 'history', group: 'File', label: 'Version history', icon: 'history', run: () => store.setUi({ dialog: 'history' }) },
       { id: 'share', group: 'File', label: 'Share', icon: 'share', run: () => store.setUi({ dialog: 'share' }) },
     ]),
@@ -50,6 +54,8 @@ export function Editor({ store, docId, user, provider, serverId, role, theme, se
       const typing = isTyping(e);
       if (mod && e.key.toLowerCase() === 'k') { e.preventDefault(); store.setUi({ palette: true }); return; }
       if (mod && e.key === 'Enter') { e.preventDefault(); e.shiftKey ? play(true) : ui.selection.length || ui.editingId ? play(false) : A.addSlide(store); return; }
+      if (mod && !e.altKey && e.key.toLowerCase() === 'f' && !ui.editingId) { e.preventDefault(); setFind('find'); return; }
+      if (mod && e.shiftKey && e.key.toLowerCase() === 'h' && !readOnly) { e.preventDefault(); setFind('replace'); return; }
       if (mod && e.key.toLowerCase() === 'p') { e.preventDefault(); printDeck(setPrinting); return; }
       if (typing) {
         if (ui.editingId && mod && ['b', 'i', 'u'].includes(e.key.toLowerCase())) {
@@ -148,6 +154,7 @@ export function Editor({ store, docId, user, provider, serverId, role, theme, se
       <Rail store={store} />
       <div style={{ gridArea: 'stage', position: 'relative', minWidth: 0, minHeight: 0, display: 'flex' }}>
         <Stage store={store} awareness={provider?.awareness ?? null} />
+        {find && <FindReplace store={store} mode={find} onClose={() => setFind(null)} />}
         <div className="zoom-bar" role="group" aria-label="Zoom">
           <button className="btn icon" aria-label="Zoom out" onClick={() => store.setUi({ zoom: Math.max(0.1, (ui.zoom || ui.fitZoom) / 1.25) })}>−</button>
           <button className="btn val" onClick={() => store.setUi({ zoom: 0 })} title="Fit (⌘0)">{ui.zoom ? `${zoomPct}%` : 'Fit'}</button>

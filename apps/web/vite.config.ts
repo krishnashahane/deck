@@ -13,7 +13,7 @@ export default defineConfig({
   },
   build: {
     target: 'es2022',
-    sourcemap: true,
+    sourcemap: !process.env.VERCEL, // no public source maps on hosted builds
     rollupOptions: {
       output: {
         // Stable vendor chunks cache across app releases.
