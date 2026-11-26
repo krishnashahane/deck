@@ -12,3 +12,4 @@ export { exportPptx, chartXml, type ExportOptions, type ExportResult } from './p
 export { importPptx, resolvePart, type ImportResult } from './pptx/import';
 export { inspectPptx, type PackageReport } from './pptx/inspect';
 export * from './find';
+export * from './style';
