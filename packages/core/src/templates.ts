@@ -49,17 +49,22 @@ function cards(t: Theme, w: number, h: number, items: [string, string][], top = 
   const cw = (w - 2 * m - gap * (items.length - 1)) / items.length;
   return items.flatMap(([title, body], i) => {
     const x = m + i * (cw + gap);
-    return [
+    const groupId = uid('gr');
+    return ([
       createShape(t, 'roundRect', { name: `Card ${i + 1}`, x, y: h * top, w: cw, h: h * 0.46, cornerRadius: t.radius, fill: { kind: 'solid', color: t.colors.surface } }),
       createText(t, { name: `Card ${i + 1} title`, x: x + 40, y: h * top + 44, w: cw - 80, h: 90, paragraphs: [para(title)], style: { ...createText(t).style, font: t.fonts.heading, size: 34, bold: true, padding: 0 } }),
       createText(t, { name: `Card ${i + 1} body`, x: x + 40, y: h * top + 150, w: cw - 80, h: h * 0.46 - 190, paragraphs: [para(body)], style: { ...createText(t).style, size: 22, color: t.colors.muted, lineHeight: 1.4, padding: 0 } }),
-    ];
+    ] as SlideElement[]).map((e) => ({ ...e, groupId }));
   });
 }
 
+/** Every element whose name starts with a card label rises in together with its card, cards staggered. */
 function staggerIn(s: Slide, names: RegExp): Slide {
   const targets = s.elements.filter((e) => names.test(e.name));
-  s.animations = targets.map((e, i) => createAnimation(e.id, { effect: 'rise', trigger: i === 0 ? 'click' : 'with', delay: i * 120, duration: 600 }));
+  s.animations = targets.map((e, i) => {
+    const card = Number(/(\d+)/.exec(e.name)?.[1] ?? 1) - 1;
+    return createAnimation(e.id, { effect: 'rise', trigger: i === 0 ? 'click' : 'with', delay: card * 150, duration: 600 });
+  });
   return s;
 }
 
@@ -88,7 +93,7 @@ export const TEMPLATES: TemplateDef[] = [
       make('meridian', 'Quarterly business review', (p) => [
         slide(p, 'title', { Title: 'Quarterly business review', Subtitle: 'Team name · Quarter · Presenter' }),
         slide(p, 'title-content', { Title: 'Agenda', Body: ['Highlights', 'Key metrics', 'Risks and mitigations', 'Priorities for next quarter'] }),
-        staggerIn(slide(p, 'title-only', { Title: 'Highlights' }, (t, w, h) => cards(t, w, h, [['Win', 'Describe the most important result and why it matters.'], ['Learning', 'What did the team learn that changes the plan?'], ['Focus', 'Where will the team concentrate next?']])), /^Card \d$/),
+        staggerIn(slide(p, 'title-only', { Title: 'Highlights' }, (t, w, h) => cards(t, w, h, [['Win', 'Describe the most important result and why it matters.'], ['Learning', 'What did the team learn that changes the plan?'], ['Focus', 'Where will the team concentrate next?']])), /^Card \d/),
         slide(p, 'title-only', { Title: 'Key metrics' }, (t, w, h) => [createChart(t, 'column', { x: w * 0.0833, y: h * 0.3, w: w * 0.8334, h: h * 0.6, categories: ['Month 1', 'Month 2', 'Month 3'], series: [{ name: 'Replace with your data', values: [1, 2, 3] }] })]),
         slide(p, 'two-column', { Title: 'Risks and mitigations', Body: ['Risk — describe it', 'Impact and likelihood'] }),
         slide(p, 'section', { Title: 'Next quarter' }),
@@ -138,7 +143,7 @@ export const TEMPLATES: TemplateDef[] = [
       make('graphite', 'Company — investor presentation', (p) => [
         slide(p, 'title', { Title: 'Company name', Subtitle: 'One sentence that says what you do' }, (t, w) => [kicker(t, w, 'Seed round')]),
         slide(p, 'big-number', { Number: 'The problem', Caption: 'Who has it, how often, and what it costs them.' }, () => [], (els) => els.forEach((e) => e.type === 'text' && e.name === 'Number' && (e.style.size = 140))),
-        staggerIn(slide(p, 'title-only', { Title: 'Our solution' }, (t, w, h) => cards(t, w, h, [['Insight', 'What you understand that others miss.'], ['Product', 'What it does, in plain words.'], ['Why now', 'What changed that makes this possible.']])), /^Card \d$/),
+        staggerIn(slide(p, 'title-only', { Title: 'Our solution' }, (t, w, h) => cards(t, w, h, [['Insight', 'What you understand that others miss.'], ['Product', 'What it does, in plain words.'], ['Why now', 'What changed that makes this possible.']])), /^Card \d/),
         slide(p, 'title-only', { Title: 'Market' }, (t, w, h) => [createChart(t, 'donut', { x: w * 0.2, y: h * 0.26, w: w * 0.6, h: h * 0.66, categories: ['Segment A', 'Segment B', 'Segment C'], series: [{ name: 'Replace with sourced estimates', values: [1, 1, 1] }] })]),
         slide(p, 'big-number', { Number: '00', Caption: 'Traction metric — state the source and date.' }),
         slide(p, 'two-column', { Title: 'Business model', Body: ['How you charge', 'Unit economics (sourced)'] }),
@@ -159,7 +164,7 @@ export const TEMPLATES: TemplateDef[] = [
         reveal.animations = reveal.elements.map((e, i) => createAnimation(e.id, { effect: i ? 'fade' : 'blur', trigger: i ? 'after' : 'click', duration: 900 }));
         return [
           reveal,
-          staggerIn(slide(p, 'title-only', { Title: 'What’s new' }, (t, w, h) => cards(t, w, h, [['Feature', 'Benefit, not mechanism.'], ['Feature', 'Benefit, not mechanism.'], ['Feature', 'Benefit, not mechanism.']])), /^Card \d$/),
+          staggerIn(slide(p, 'title-only', { Title: 'What’s new' }, (t, w, h) => cards(t, w, h, [['Feature', 'Benefit, not mechanism.'], ['Feature', 'Benefit, not mechanism.'], ['Feature', 'Benefit, not mechanism.']])), /^Card \d/),
           slide(p, 'image-left', { Title: 'How it works', Body: ['Step one', 'Step two', 'Step three'] }),
           slide(p, 'quote', { Quote: '“A real customer quote, with permission.”', Attribution: '— Name, Company' }),
           slide(p, 'big-number', { Number: 'Today', Caption: 'Availability, pricing and where to get it.' }),
