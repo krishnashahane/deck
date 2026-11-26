@@ -2,7 +2,7 @@
 
 A secure, collaborative presentation editor. Design slides on a precise canvas, animate them, present with a presenter view, work together in real time, and open and save ECMA-376 Open XML presentations (`.pptx`).
 
-- **Local-first.** Every presentation is a CRDT document saved to the browser's IndexedDB on every change. Works offline and survives crashes and reloads.
+- **Local-first.** Every presentation is a CRDT document saved to the browser's IndexedDB on every change, with automatic local snapshots that restore a document if browser storage is lost. Works offline and survives crashes and reloads.
 - **Collaborative.** Optional server adds accounts, sharing, roles, comments, version history and live multi-user editing over authenticated WebSockets.
 - **Interoperable.** `.pptx` import and export with an explicit import report — nothing is dropped silently.
 - **Secure by design.** Hostile-file defences, strict CSP, CSRF protection, server-side authorisation, hashed credentials, MFA, audit log.
@@ -29,7 +29,7 @@ npm run typecheck
 npm run audit             # npm dependency audit
 ```
 
-Current results: **51 unit/integration tests** and **9 end-to-end tests** pass; `npm audit` reports 0 vulnerabilities.
+Current results: **51 unit/integration tests** and **10 end-to-end tests** pass (e2e suite green on repeated runs); `npm audit` reports 0 vulnerabilities.
 
 ## Project layout
 

@@ -72,12 +72,14 @@ Scope: `packages/core`, `apps/web`, `apps/server` at the time of writing. Every 
 |---|---|
 | `npm audit` (all workspaces) | 0 vulnerabilities |
 | Unit/integration tests (security-relevant subset: 25+) | pass |
-| End-to-end tests | 9/9 pass |
+| End-to-end tests | 10/10 pass |
 | Source scan for `eval`, `new Function`, `child_process`, raw `innerHTML` | only the two audited sinks above |
 
 ## Issues found and fixed during the review
 1. **XSS via style injection in the rich-text editor** — colour/font values from a document were concatenated into an HTML `style` attribute. Fixed with strict validation and escaping; regression test added.
-2. **Escape key did not close dialogs/menus** when focus was inside them (usability, not security) — fixed.
+2. **Escape key did not close dialogs/menus** when focus was inside them, and dialogs briefly moved focus on every re-render — fixed.
+3. **Local data durability**: browser storage can be evicted. DECK now requests persistent storage, keeps automatic local snapshots (20 per document) and restores from the latest snapshot automatically; covered by an end-to-end test.
+4. **Snapshot store could fail to initialise** if an empty database already existed — fixed by a versioned upgrade that always ensures the store.
 
 ## Known limitations / deferred
 - No external penetration test has been performed.
