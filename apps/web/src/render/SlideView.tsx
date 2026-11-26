@@ -1,6 +1,41 @@
-import { memo, useId, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
-import katex from 'katex';
-import 'katex/dist/katex.min.css';
+import { memo, useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+
+/* KaTeX (~270 kB with fonts/CSS) is loaded only when a slide contains an equation. */
+type Katex = typeof import('katex').default;
+let katexMod: Katex | null = null;
+let katexLoad: Promise<Katex> | null = null;
+function loadKatex(): Promise<Katex> {
+  katexLoad ??= Promise.all([import('katex'), import('katex/dist/katex.min.css')]).then(([m]) => (katexMod = m.default));
+  return katexLoad;
+}
+function useKatex(): Katex | null {
+  const [k, setK] = useState<Katex | null>(katexMod);
+  useEffect(() => {
+    if (!k) void loadKatex().then(setK);
+  }, [k]);
+  return k;
+}
+
+function EquationBody({ el }: { el: Extract<SlideElement, { type: 'equation' }> }) {
+  const katex = useKatex();
+  let html = '';
+  if (katex) {
+    try {
+      html = katex.renderToString(el.latex, { throwOnError: false, displayMode: true, trust: false, strict: 'ignore', maxSize: 50, maxExpand: 500 });
+    } catch {
+      html = '';
+    }
+  }
+  return (
+    <foreignObject x={el.x} y={el.y} width={el.w} height={el.h}>
+      {katex ? (
+        <div style={{ width: el.w, height: el.h, display: 'grid', placeItems: 'center', color: el.color, fontSize: el.size * (96 / 72), overflow: 'hidden' }} dangerouslySetInnerHTML={{ __html: html }} />
+      ) : (
+        <div style={{ width: el.w, height: el.h, display: 'grid', placeItems: 'center', color: el.color, fontSize: el.size * (96 / 72) * 0.6, fontFamily: 'monospace', opacity: 0.6 }}>{el.latex}</div>
+      )}
+    </foreignObject>
+  );
+}
 import { UNITS_PER_POINT, type DeckDoc, type Fill, type Paragraph, type Presentation, type Slide, type SlideElement, type TextStyle } from '@deck/core';
 import { assetUrl } from '../lib/assets';
 import { shapePath } from './shapes';
@@ -362,20 +397,9 @@ export function ElementView({ el, deck, uid, live, lite, byId }: { el: SlideElem
       );
       break;
     }
-    case 'equation': {
-      let html = '';
-      try {
-        html = katex.renderToString(el.latex, { throwOnError: false, displayMode: true, trust: false, strict: 'ignore', maxSize: 50, maxExpand: 500 });
-      } catch {
-        html = '';
-      }
-      body = (
-        <foreignObject x={el.x} y={el.y} width={el.w} height={el.h}>
-          <div style={{ width: el.w, height: el.h, display: 'grid', placeItems: 'center', color: el.color, fontSize: pt(el.size), overflow: 'hidden' }} dangerouslySetInnerHTML={{ __html: html }} />
-        </foreignObject>
-      );
+    case 'equation':
+      body = <EquationBody el={el} />;
       break;
-    }
     case 'raw':
       body = (
         <g>

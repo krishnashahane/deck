@@ -5,7 +5,6 @@ import { SlideView } from './render/SlideView';
 import { DeckDoc } from '@deck/core';
 import { Icon } from './editor/icons';
 import { api, me, serverAvailable, type CloudDoc, type User } from './lib/api';
-import { readPresentationFile } from './lib/export';
 import { toast } from './lib/toast';
 import { pendingSeeds } from './seeds';
 
@@ -41,6 +40,7 @@ export function Home({ theme, setTheme }: { theme: 'dark' | 'light'; setTheme: (
     if (!f) return toast('Drop a .pptx, .potx or .deck file');
     setBusy(`Importing ${f.name}…`);
     try {
+      const { readPresentationFile } = await import('./lib/export');
       const r = await readPresentationFile(f);
       create(r.presentation, r.assets);
       if (r.presentation.importReport?.warnings.length) toast(`Imported with ${r.presentation.importReport.warnings.length} notes — see Review › Import report`, 4500);

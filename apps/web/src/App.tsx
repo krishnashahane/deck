@@ -1,11 +1,12 @@
-import { useEffect, useState } from 'react';
+import { Suspense, lazy, useEffect, useState } from 'react';
 import * as Y from 'yjs';
 import type { WebsocketProvider } from 'y-websocket';
 import { Home } from './Home';
-import { Account } from './Account';
-import { Editor } from './editor/Editor';
-import { Show } from './present/Show';
-import { Presenter } from './present/Presenter';
+// Route-level code splitting: the home screen loads first; heavy screens load on demand.
+const Account = lazy(() => import('./Account').then((m) => ({ default: m.Account })));
+const Editor = lazy(() => import('./editor/Editor').then((m) => ({ default: m.Editor })));
+const Show = lazy(() => import('./present/Show').then((m) => ({ default: m.Show })));
+const Presenter = lazy(() => import('./present/Presenter').then((m) => ({ default: m.Presenter })));
 import { EditorStore } from './lib/store';
 import { listDocs, openDoc, recovered, requestPersistentStorage, upsertDoc, type OpenDoc } from './lib/persistence';
 import { api, b64, me, type Role, type User } from './lib/api';
@@ -44,7 +45,7 @@ export function App() {
   else page = <Home theme={theme} setTheme={setTheme} />;
   return (
     <>
-      {page}
+      <Suspense fallback={<div className="empty-state" aria-busy="true">Loading…</div>}>{page}</Suspense>
       <Toasts />
     </>
   );
