@@ -42,16 +42,18 @@ docker compose up --build
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `DATABASE_URL` | `postgres://deck@localhost:5439/deck` | PostgreSQL connection |
+| `DATABASE_URL` | dev: `postgres://deck@localhost:5439/deck` · **required in production** | PostgreSQL connection |
 | `PORT` | `8787` | HTTP/WebSocket port |
-| `DECK_PUBLIC_URL` | `http://localhost:5173` | Public origin (CSRF/origin checks, links in email) |
-| `DECK_ALLOWED_ORIGINS` | — | Extra allowed origins |
+| `DECK_PUBLIC_URL` | dev: `http://localhost:5173` · **required, https:// in production** | Public origin (CSRF/origin checks, links in email) |
+| `DECK_ALLOWED_ORIGINS` | — | Extra allowed origins (https:// only in production) |
 | `DECK_STATIC_DIR` | — | Serve the built web app |
 | `DECK_MAIL_WEBHOOK` | — | HTTP endpoint receiving `{to, subject, text}` for password-reset mail |
 | `ANTHROPIC_API_KEY` | — | Enables the server AI provider |
 | `DECK_AI_MODEL` | `claude-opus-5-5` | Model for the AI provider |
 | `DECK_AUTH_RATE`, `DECK_API_RATE` | `30`, `600` | Requests per IP per minute |
 | `DECK_MAX_DOC_BYTES` | 200 MB | Largest document the sync server persists |
+
+In production the server **refuses to start** if a required value is missing, a URL is malformed or not HTTPS, or a number is out of range — it never falls back to development defaults. Development-only origins (`localhost`) are never trusted in production. `docker compose` refuses to start without `POSTGRES_PASSWORD`.
 
 ## Operations
 - The schema is created/updated automatically at start-up (idempotent).

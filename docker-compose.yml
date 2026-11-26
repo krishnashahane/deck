@@ -11,7 +11,7 @@ services:
     build: .
     env_file: .env
     environment:
-      DATABASE_URL: postgres://deck:${POSTGRES_PASSWORD}@db:5432/deck
+      DATABASE_URL: postgres://deck:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@db:5432/deck
     depends_on: { db: { condition: service_healthy } }
     ports: ["8787:8787"]
 volumes:
