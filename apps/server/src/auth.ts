@@ -131,6 +131,15 @@ export function authRoutes(db: Db, cfg: Config, mailer: Mailer, onSessionsRevoke
     res.json(q.rows.map((s) => ({ id: s.id.slice(0, 16), created_at: s.created_at, last_seen: s.last_seen, user_agent: s.user_agent, current: s.id === req.user!.sessionId })));
   });
 
+  /** The caller's own recent security events (sign-ins, failures, MFA and password changes) so they can spot misuse. */
+  r.get('/activity', requireUser, async (req, res) => {
+    const q = await db.query(
+      `select at, action, ip from audit_log where user_id = $1 and (action like 'auth.%' or action like 'mfa.%' or action like 'session.%' or action = 'user.register') order by at desc limit 50`,
+      [req.user!.id],
+    );
+    res.json(q.rows);
+  });
+
   r.delete('/sessions/:sid', requireUser, async (req, res) => {
     const sid = String(req.params.sid);
     if (!/^[0-9a-f]{16}$/.test(sid)) return res.status(400).json({ error: 'Bad session id' });

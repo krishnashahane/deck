@@ -91,6 +91,8 @@ create table if not exists audit_log (
   doc_id text,
   detail jsonb
 );
+create index if not exists audit_log_doc_at on audit_log (doc_id, at desc) where doc_id is not null;
+create index if not exists audit_log_user_at on audit_log (user_id, at desc);
 `;
 
 export async function migrate(db: Db) {

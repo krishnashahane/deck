@@ -126,6 +126,32 @@ export function docRoutes(db: Db, cfg: Config, sync: SyncServer): Router {
     res.json({ removed: q.rowCount });
   });
 
+  /**
+   * Owner-only activity log for this document: who shared, changed roles, restored versions, used links.
+   * Collaborators' IP addresses are deliberately not exposed; target users are shown by name/email.
+   */
+  r.get('/:id/activity', need(db, 'owner'), async (req, res) => {
+    const before = req.query.before ? new Date(String(req.query.before)) : null;
+    if (before && Number.isNaN(before.getTime())) return res.status(400).json({ error: 'Invalid cursor' });
+    const q = await db.query(
+      `select a.at, a.action, a.detail, u.name as actor_name, u.email as actor_email, t.name as target_name, t.email as target_email
+         from audit_log a
+         left join users u on u.id = a.user_id
+         left join users t on t.id = a.detail->>'target'
+        where a.doc_id = $1 and ($2::timestamptz is null or a.at < $2)
+        order by a.at desc limit 100`,
+      [req.params.id, before],
+    );
+    res.json(q.rows.map((r) => ({
+      at: r.at,
+      action: r.action,
+      actor: r.actor_email ? { name: r.actor_name, email: r.actor_email } : null,
+      target: r.target_email ? { name: r.target_name, email: r.target_email } : null,
+      role: typeof r.detail?.role === 'string' ? r.detail.role : undefined,
+      hours: typeof r.detail?.hours === 'number' ? r.detail.hours : undefined,
+    })));
+  });
+
   /* share links: the raw token is shown once; only its hash is stored */
   r.get('/:id/links', need(db, 'owner'), async (req, res) => {
     const q = await db.query('select id, role, expires_at, revoked, created_at from links where doc_id = $1 order by created_at desc', [req.params.id]);

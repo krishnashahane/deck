@@ -289,6 +289,37 @@ describe('documents & authorisation', () => {
     expect(r.headers.get('x-powered-by')).toBeNull();
   });
 
+  it('activity log: owner-only, names actors and targets, never exposes collaborator IPs', async () => {
+    const r = await owner.req('GET', `/docs/${docId}/activity`);
+    expect(r.status).toBe(200);
+    const actions = r.body.map((a: { action: string }) => a.action);
+    expect(actions).toEqual(expect.arrayContaining(['doc.create', 'member.add', 'link.create']));
+    const invite = r.body.find((a: { action: string; target: { email: string } | null }) => a.action === 'member.add' && a.target?.email === 'editor@example.com');
+    expect(invite).toMatchObject({ actor: { email: 'owner@example.com' }, role: 'editor' });
+    expect(JSON.stringify(r.body)).not.toMatch(/"ip"|127\.0\.0\.1|::1/);
+    // newest first, cursor paging
+    const times = r.body.map((a: { at: string }) => Date.parse(a.at));
+    expect([...times].sort((a, b) => b - a)).toEqual(times);
+    expect((await owner.req('GET', `/docs/${docId}/activity?before=${encodeURIComponent(r.body[0].at)}`)).body.length).toBe(r.body.length - 1);
+    expect((await owner.req('GET', `/docs/${docId}/activity?before=not-a-date`)).status).toBe(400);
+    // other roles and strangers
+    expect((await viewer.req('GET', `/docs/${docId}/activity`)).status).toBe(403);
+    expect((await other.req('GET', `/docs/${docId}/activity`)).status).toBe(404);
+  });
+
+  it('users see only their own security activity', async () => {
+    const mine = await owner.req('GET', '/auth/activity');
+    expect(mine.status).toBe(200);
+    expect(mine.body.map((a: { action: string }) => a.action)).toContain('user.register');
+    expect(mine.body.every((a: { action: string }) => /^(auth|mfa|session)\.|^user\.register$/.test(a.action))).toBe(true);
+    const anon = new Client();
+    await anon.req('GET', '/auth/me');
+    expect((await anon.req('GET', '/auth/activity')).status).toBe(401);
+    const q = await s.db.query("select count(*)::int as n from audit_log a join users u on u.id = a.user_id where u.email = 'other@example.com' and a.action = 'user.register'");
+    expect(q.rows[0].n).toBe(1);
+    expect(JSON.stringify(mine.body)).not.toContain('other@example.com');
+  });
+
   it('never exposes stack traces for malformed input', async () => {
     const r = await fetch(`${base}/api/auth/login`, { method: 'POST', headers: { 'content-type': 'application/json', cookie: owner.cookieHeader(), 'x-deck-csrf': decodeURIComponent(owner.jar.get('deck_csrf')!) }, body: '{bad json' });
     expect(r.status).toBe(400);
