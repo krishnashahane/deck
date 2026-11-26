@@ -241,3 +241,11 @@ test('crash/eviction recovery: a document whose store was wiped is restored from
   await expect(page.locator('.slide-host > svg')).toContainText('Paper or project title');
   expect(await page.locator('.rail').getByText(/^\d+ slides$/).textContent()).toBe('6 slides');
 });
+
+test('equations render with the on-demand maths engine', async ({ page }) => {
+  await newFromTemplate(page, /^Blank$/);
+  const before = await elCount(page);
+  await page.getByTitle('Equation', { exact: true }).click();
+  expect(await elCount(page)).toBe(before + 1);
+  await expect(page.locator('.slide-host .katex').first()).toBeVisible();
+});
