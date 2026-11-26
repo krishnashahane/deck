@@ -64,7 +64,13 @@ Scope: `packages/core`, `apps/web`, `apps/server` at the time of writing. Every 
 
 ### Data protection & audit
 - All SQL uses parameters. Audit log records auth events, sharing changes, restores, sync kicks and AI requests.
+- **Visible audit:** each user can see their own recent security events (sign-ins, failed attempts, lockouts, MFA and password changes, with the IP of each event) on the account page, with a warning when failed attempts occurred. ✅
+- Document owners can see an access activity log (invites, role changes, removals, links created/revoked/used, restores). Other roles get 403, non-members 404, and **collaborators' IP addresses are never exposed** to owners. ✅
 - Local documents never leave the device unless the user explicitly moves one to the server.
+
+### Static hosting (`vercel.json`)
+- The hosted editor sends the same strict CSP (with `connect-src 'self'` — no sockets to other hosts), HSTS with preload, `X-Frame-Options: DENY`, `Cross-Origin-Opener-Policy` and `Cross-Origin-Resource-Policy: same-origin`, a restrictive `Permissions-Policy`, and `Referrer-Policy: no-referrer`. Verified against the live deployment.
+- Source maps are not published for hosted builds; `.vercelignore` excludes local data, environment files and test output from uploads. Verified: `.env`, `.env.local`, database files, server source, `package.json` and `*.map` all return 404.
 
 ## Verification
 
@@ -72,7 +78,7 @@ Scope: `packages/core`, `apps/web`, `apps/server` at the time of writing. Every 
 |---|---|
 | `npm audit` (all workspaces) | 0 vulnerabilities |
 | Unit/integration tests (security-relevant subset: 25+) | pass |
-| End-to-end tests | 11/11 pass |
+| End-to-end tests | 13/13 pass |
 | Source scan for `eval`, `new Function`, `child_process`, raw `innerHTML` | only the two audited sinks above |
 
 ## Issues found and fixed during the review

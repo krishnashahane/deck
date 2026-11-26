@@ -20,6 +20,10 @@ npm run dev:web           # editor on http://localhost:5173
 
 The editor works without the server (local mode: everything except accounts, sharing and server-side AI).
 
+## Hosted demo
+
+The editor is deployed as a static, local-first app at https://deck-silk-beta.vercel.app (documents stay in the visitor's browser). Accounts, sharing and live collaboration require the Node + PostgreSQL server — see [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+
 ## Tests
 
 ```bash
@@ -29,7 +33,7 @@ npm run typecheck
 npm run audit             # npm dependency audit
 ```
 
-Current results: **51 unit/integration tests** and **11 end-to-end tests** pass (e2e suite green on repeated runs); `npm audit` reports 0 vulnerabilities.
+Current results: **64 unit/integration tests** and **13 end-to-end tests** pass (e2e suite green on repeated runs); `npm audit` reports 0 vulnerabilities.
 
 ## Project layout
 
@@ -50,7 +54,8 @@ Legend: ✅ implemented & tested · 🟡 partially supported · ⚪ implemented,
 |---|---|---|
 | Slides | Create, duplicate, delete, reorder (drag & drop, multi-select), hidden slides, sections, notes, outline view | ✅ |
 | Content | Text, rich text runs, shapes (14), lines/connectors that follow objects, images (crop, mask, alt text), tables, charts (7 kinds, data editor), equations (LaTeX), video/audio, hyperlinks (web & slide) | ✅ (e2e covers shapes, tables, charts, text; others unit/manual) |
-| Arrange | Group/ungroup, align, distribute, z-order, lock, rotation, resize with aspect lock, smart guides with spacing labels, snapping, grid, zoom & pan | ✅ (manual + unit) |
+| Arrange | Group/ungroup, align, distribute, z-order, lock, rotation, resize with aspect lock, smart guides with spacing labels, snapping, grid, zoom & pan, right-click menus | ✅ (manual + unit; right-click e2e) |
+| Editing | Deck-wide find & replace (text runs, tables, charts, notes, alt text; match case, whole word; one-step undo), format painter (copy/paste style, sticky mode), full-screen slide sorter (drag, keyboard reorder, multi-select) | ✅ (unit + e2e) |
 | Typography | Fonts (5 bundled OFL families + system), sizes, weight, italic, underline, strike, colour, highlight, alignment, line height, letter spacing, bullets/numbering with levels, text effects, shrink-to-fit, Unicode/RTL text | 🟡 RTL layout not specifically tuned |
 | Design | 8 themes, 9 layout masters, re-theming, brand kits, backgrounds (solid/gradient/image), gradient fills, shadows, 7 professional templates | ✅ |
 | Animation | Entrance/exit/emphasis/motion-path effects, click/with/after sequencing, delays, durations, easing, trigger objects, timeline editor, previews | ✅ |
@@ -60,8 +65,8 @@ Legend: ✅ implemented & tested · 🟡 partially supported · ⚪ implemented,
 | Import | `.pptx`/`.potx` with import report; `.deck` | ✅ |
 | `.key` | Native read/write | ⏸ (see compatibility matrix; interop via `.pptx`) |
 | Collaboration | Real-time co-editing, presence/cursors, comments & replies, versions, offline + resync | ✅ |
-| Accounts | Register, login, scrypt hashing, TOTP MFA, sessions list/revoke, password recovery | ✅ (email delivery needs an operator-configured relay) |
-| Sharing | Owner/editor/commenter/viewer, invites, expiring revocable links | ✅ |
+| Accounts | Register, login, scrypt hashing, TOTP MFA, sessions list/revoke, password recovery, personal security activity log | ✅ (email delivery needs an operator-configured relay) |
+| Sharing | Owner/editor/commenter/viewer, invites, expiring revocable links, owner-only access activity log | ✅ |
 | AI | On-device heuristics; server-side provider with consent, schema-validated proposals, fact flags | ✅ heuristics & server guards; ⚪ live provider call (needs API key) |
 | Storage | PostgreSQL document store; S3-compatible object storage | ✅ Postgres; ⏸ S3 (assets live inside documents) |
 | Font embedding in `.pptx` | | ⏸ |
