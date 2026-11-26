@@ -8,6 +8,8 @@ import { toast } from '../lib/toast';
 
 type TextEl = Extract<SlideElement, { type: 'text' | 'shape' }>;
 
+let savedRange: Range | null = null;
+
 function editorEl(): HTMLElement | null {
   return document.querySelector<HTMLElement>('[data-text-editor]');
 }
@@ -98,10 +100,15 @@ export function ContextBar({ store, anchor, hostHeight }: { store: EditorStore; 
     if (editing) wrapStyle({ fontSize: `${n * (96 / 72)}px` });
     else setStyle({ size: n }, 'size');
   };
-  const link = () => {
-    const url = prompt('Link URL (https://…)');
+  const link = (url: string) => {
     if (!url) return;
-    const safe = safeHref(url);
+    if (editing && savedRange) {
+      editorEl()?.focus();
+      const sel = window.getSelection();
+      sel?.removeAllRanges();
+      sel?.addRange(savedRange);
+    }
+    const safe = safeHref(url.includes(':') ? url : `https://${url}`);
     if (!safe) return toast('Only http, https and mailto links are allowed');
     if (editing) {
       const ed = editorEl();
@@ -147,7 +154,14 @@ export function ContextBar({ store, anchor, hostHeight }: { store: EditorStore; 
           <button className="btn icon" aria-label="Numbered list" onClick={() => list('number')}><Icon name="numbers" /></button>
           <button className="btn icon" aria-label="Decrease indent" onClick={() => indent(-1)}><Icon name="outdent" /></button>
           <button className="btn icon" aria-label="Increase indent" onClick={() => indent(1)}><Icon name="indent" /></button>
-          <button className="btn icon" aria-label="Insert link" onClick={link}><Icon name="link" /></button>
+          <Popover width={300} trigger={(open) => <button className="btn icon" aria-label="Insert link" onClick={() => { const sel = window.getSelection(); savedRange = sel && sel.rangeCount ? sel.getRangeAt(0).cloneRange() : null; open(); }}><Icon name="link" /></button>}>
+            {(close) => (
+              <form style={{ padding: 6, display: 'flex', gap: 6 }} onSubmit={(e) => { e.preventDefault(); link(String(new FormData(e.currentTarget).get('url') ?? '')); close(); }}>
+                <input name="url" className="input" autoFocus placeholder="https://example.com" aria-label="Link address" onKeyDown={(e) => e.stopPropagation()} />
+                <button className="btn primary" type="submit">Link</button>
+              </form>
+            )}
+          </Popover>
           {!editing && <span className="sep" />}
         </>
       )}

@@ -19,6 +19,7 @@ export function Home({ theme, setTheme }: { theme: 'dark' | 'light'; setTheme: (
   const [drag, setDrag] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [filter, setFilter] = useState('All');
+  const [confirmDel, setConfirmDel] = useState<string | null>(null);
   const previews = useMemo(() => TEMPLATES.map((t) => ({ t, p: t.build() })), []);
 
   useEffect(() => {
@@ -94,12 +95,15 @@ export function Home({ theme, setTheme }: { theme: 'dark' | 'light'; setTheme: (
               <span className="pill">{d.cloud ? 'Moved to cloud' : 'This device'}</span>
               <b>{d.title}</b>
               <span className="label">{d.slides} slides · {new Date(d.updated).toLocaleString()}</span>
-              <button className="btn icon" aria-label={`Delete ${d.title}`} onClick={(e) => {
-                e.stopPropagation();
-                if (!confirm(`Delete “${d.title}” from this device? This cannot be undone.`)) return;
-                removeDoc(d.id);
-                setDocs(listDocs());
-              }}><Icon name="trash" /></button>
+              {confirmDel === d.id ? (
+                <span className="row" onClick={(e) => e.stopPropagation()}>
+                  <span className="label">Delete permanently?</span>
+                  <button className="btn danger" onClick={() => { removeDoc(d.id); setDocs(listDocs()); setConfirmDel(null); }}>Delete</button>
+                  <button className="btn" onClick={() => setConfirmDel(null)}>Cancel</button>
+                </span>
+              ) : (
+                <button className="btn icon" aria-label={`Delete ${d.title}`} onClick={(e) => { e.stopPropagation(); setConfirmDel(d.id); }}><Icon name="trash" /></button>
+              )}
             </div>
           ))}
         </section>

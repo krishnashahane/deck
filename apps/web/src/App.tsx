@@ -7,7 +7,7 @@ import { Editor } from './editor/Editor';
 import { Show } from './present/Show';
 import { Presenter } from './present/Presenter';
 import { EditorStore } from './lib/store';
-import { listDocs, openDoc, upsertDoc, type OpenDoc } from './lib/persistence';
+import { listDocs, openDoc, recovered, requestPersistentStorage, upsertDoc, type OpenDoc } from './lib/persistence';
 import { api, b64, me, type Role, type User } from './lib/api';
 import { connect } from './lib/collab';
 import { onToasts, toast } from './lib/toast';
@@ -94,8 +94,10 @@ function DocRoute({ id, mode, start, theme, setTheme }: { id: string; mode: 'edi
     let opened: OpenDoc | null = null;
     (async () => {
       const seed = pendingSeeds.get(id);
+      void requestPersistentStorage();
       opened = await openDoc(id, seed);
       if (disposed) return opened.destroy();
+      if (recovered.delete(id)) toast('Recovered this presentation from its latest automatic snapshot', 5000);
       const store = new EditorStore(opened.deck);
       const u = await me();
       setUser(u);

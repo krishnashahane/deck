@@ -150,16 +150,19 @@ function fmt(v: number): string {
 
 export function Dialog({ title, onClose, children, footer, width }: { title: ReactNode; onClose: () => void; children: ReactNode; footer?: ReactNode; width?: number }) {
   const ref = useRef<HTMLDivElement>(null);
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
+  // Runs once per dialog: focus the first control, restore focus on close.
   useEffect(() => {
     const prev = document.activeElement as HTMLElement | null;
     ref.current?.querySelector<HTMLElement>('input, textarea, select, button')?.focus();
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && closeRef.current();
     window.addEventListener('keydown', onKey);
     return () => {
       window.removeEventListener('keydown', onKey);
       prev?.focus?.();
     };
-  }, [onClose]);
+  }, []);
   return createPortal(
     <div className="scrim" onPointerDown={(e) => e.target === e.currentTarget && onClose()}>
       <div ref={ref} className="dialog" role="dialog" aria-modal="true" aria-label={typeof title === 'string' ? title : undefined} style={width ? { width: `min(${width}px, calc(100vw - 32px))` } : undefined} onKeyDown={(e) => { if (e.key === 'Escape') onClose(); e.stopPropagation(); }}>

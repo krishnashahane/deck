@@ -112,7 +112,8 @@ test('slideshow plays click-step animations and transitions', async ({ page }) =
   const hiddenBefore = await show.locator('.show-layer >> [data-el][style*="visibility: hidden"]').count();
   expect(hiddenBefore).toBeGreaterThan(0);
   await page.keyboard.press('ArrowRight');
-  await page.waitForTimeout(1200);
+  await expect.poll(() => show.locator('.show-layer >> [data-el][style*="visibility: hidden"]').count(), { timeout: 5000 }).toBe(0);
+  await page.waitForTimeout(300);
   const hiddenAfter = await show.locator('.show-layer >> [data-el][style*="visibility: hidden"]').count();
   expect(hiddenAfter).toBeLessThan(hiddenBefore);
   void card;
@@ -214,4 +215,29 @@ test('real-time collaboration between two signed-in users', async ({ browser }) 
   await expect(owner.locator('.avatars .avatar')).toHaveCount(1, { timeout: 10000 });
   await ownerCtx.close();
   await guestCtx.close();
+});
+
+test('crash/eviction recovery: a document whose store was wiped is restored from its automatic snapshot', async ({ page }) => {
+  await page.goto('/');
+  await page.locator('.tpl').filter({ has: page.locator('b', { hasText: /^Research talk$/ }) }).first().click();
+  await expect(page.locator('.slide-host > svg')).toBeVisible();
+  const id = new URL(page.url()).hash.split('/')[2]!;
+  // Wait until the automatic snapshot has been written.
+  await expect.poll(() => page.evaluate(async (docId) => (await indexedDB.databases()).some((d) => d.name === 'deck-versions' && (d.version ?? 0) >= 2) ? new Promise<number>((r) => {
+    const o = indexedDB.open('deck-versions');
+    o.onsuccess = () => {
+      const db = o.result;
+      if (!db.objectStoreNames.contains('v')) { db.close(); return r(0); }
+      const q = db.transaction('v').objectStore('v').index('doc').count(IDBKeyRange.only(docId));
+      q.onsuccess = () => { db.close(); r(q.result); };
+    };
+    o.onerror = () => r(0);
+  }) : 0, id), { timeout: 10000 }).toBeGreaterThan(0);
+  await page.goto('/');
+  const outcome = await page.evaluate((name) => new Promise<string>((r) => { const q = indexedDB.deleteDatabase(name); q.onsuccess = () => r('deleted'); q.onerror = () => r('error'); }), `deck:${id}`);
+  expect(outcome).toBe('deleted');
+  await page.goto(`/#/d/${id}`);
+  await expect(page.getByText(/Recovered this presentation/)).toBeVisible();
+  await expect(page.locator('.slide-host > svg')).toContainText('Paper or project title');
+  expect(await page.locator('.rail').getByText(/^\d+ slides$/).textContent()).toBe('6 slides');
 });

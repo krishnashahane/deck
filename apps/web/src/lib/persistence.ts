@@ -41,6 +41,15 @@ export function removeDoc(id: string) {
   indexedDB.deleteDatabase(`deck:${id}`);
 }
 
+/** Ask the browser not to evict DECK's storage under pressure (best effort; some browsers decide silently). */
+export async function requestPersistentStorage(): Promise<boolean> {
+  try {
+    return (await navigator.storage?.persisted?.()) || ((await navigator.storage?.persist?.()) ?? false);
+  } catch {
+    return false;
+  }
+}
+
 export interface OpenDoc {
   deck: DeckDoc;
   idb: IndexeddbPersistence;
@@ -53,6 +62,15 @@ export async function openDoc(id: string, seed?: { pres: Presentation; assets: R
   const idb = new IndexeddbPersistence(`deck:${id}`, ydoc);
   await idb.whenSynced;
   const deck = new DeckDoc(ydoc);
+  // Recovery: the main store is empty but a snapshot exists (e.g. the browser evicted part of its storage).
+  if (!deck.initialized && !seed) {
+    const snaps = await listVersions(id).catch(() => []);
+    if (snaps[0]) {
+      await restoreVersion(snaps[0].key, deck);
+      deck.undo.clear();
+      recovered.add(id);
+    }
+  }
   if (!deck.initialized && seed) {
     const tmp = docFromPresentation({ ...seed.pres, id }, seed.assets);
     Y.applyUpdate(ydoc, Y.encodeStateAsUpdate(tmp.doc), 'init');
@@ -68,11 +86,31 @@ export async function openDoc(id: string, seed?: { pres: Presentation; assets: R
     timer = setTimeout(touch, 500);
   });
   if (seed) touch();
+  // Automatic local snapshots: every 5 minutes while edited, and when the tab is hidden or closed.
+  let dirty = false;
+  let lastSnap = 0;
+  const unsubDirty = deck.subscribe((_, local) => local && (dirty = true));
+  const snap = (force = false) => {
+    if (!deck.initialized || (!dirty && !force)) return;
+    dirty = false;
+    lastSnap = Date.now();
+    void saveVersion(id, deck, 'Autosave', true);
+  };
+  const interval = setInterval(() => dirty && Date.now() - lastSnap > 5 * 60_000 && snap(), 30_000);
+  const onHide = () => document.visibilityState === 'hidden' && snap();
+  document.addEventListener('visibilitychange', onHide);
+  window.addEventListener('pagehide', onHide);
+  if (seed) setTimeout(() => snap(true), 1000);
   return {
     deck,
     idb,
     destroy: () => {
+      snap();
       unsub();
+      unsubDirty();
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', onHide);
+      window.removeEventListener('pagehide', onHide);
       clearTimeout(timer);
       void idb.destroy();
       ydoc.destroy();
@@ -87,10 +125,24 @@ export function newDocId(): string {
 }
 
 /** Snapshot for local version history (stored in IndexedDB alongside the doc). */
-export async function saveVersion(id: string, deck: DeckDoc, label: string) {
+export const recovered = new Set<string>();
+
+export async function saveVersion(id: string, deck: DeckDoc, label: string, auto = false) {
   const db = await versionsDb();
   const tx = db.transaction('v', 'readwrite');
-  tx.objectStore('v').add({ doc: id, at: Date.now(), label, state: Y.encodeStateAsUpdate(deck.doc) });
+  const store = tx.objectStore('v');
+  store.add({ doc: id, at: Date.now(), label, auto, state: Y.encodeStateAsUpdate(deck.doc) });
+  if (auto) {
+    // Keep only the 20 newest automatic snapshots per document.
+    const req = store.index('doc').openCursor(IDBKeyRange.only(id), 'prev');
+    let n = 0;
+    req.onsuccess = () => {
+      const c = req.result;
+      if (!c) return;
+      if (c.value.auto && ++n > 20) c.delete();
+      c.continue();
+    };
+  }
   await new Promise((r) => (tx.oncomplete = r));
 }
 
@@ -135,14 +187,18 @@ export async function restoreVersion(key: number, deck: DeckDoc) {
 
 let dbp: Promise<IDBDatabase> | null = null;
 function versionsDb(): Promise<IDBDatabase> {
+  // Version 2 guarantees an upgrade pass that creates the store even if an empty database already exists.
   dbp ??= new Promise((res, rej) => {
-    const r = indexedDB.open('deck-versions', 1);
+    const r = indexedDB.open('deck-versions', 2);
     r.onupgradeneeded = () => {
-      const s = r.result.createObjectStore('v', { keyPath: 'key', autoIncrement: true });
-      s.createIndex('doc', 'doc');
+      if (!r.result.objectStoreNames.contains('v')) {
+        const s = r.result.createObjectStore('v', { keyPath: 'key', autoIncrement: true });
+        s.createIndex('doc', 'doc');
+      }
     };
     r.onsuccess = () => res(r.result);
     r.onerror = () => rej(r.error);
   });
+  dbp.catch(() => (dbp = null));
   return dbp;
 }
