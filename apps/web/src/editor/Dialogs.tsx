@@ -81,7 +81,7 @@ function Share({ store, user, serverId, onClose, onMakeCloud }: { store: EditorS
       <div className="row">
         <input className="input" placeholder="Email address" value={email} onChange={(e) => setEmail(e.target.value)} />
         <select className="select" style={{ width: 130 }} value={role} onChange={(e) => setRole(e.target.value as Role)}><option value="editor">Editor</option><option value="commenter">Commenter</option><option value="viewer">Viewer</option></select>
-        <button className="btn primary" disabled={!email.includes('@')} onClick={async () => { try { await api(`/docs/${serverId}/members`, { body: { email, role } }); setEmail(''); await load(); } catch (e) { toast((e as Error).message); } }}>Invite</button>
+        <button className="btn primary" disabled={!email.includes('@')} onClick={async (ev) => { const input = (ev.currentTarget.parentElement?.querySelector('input') as HTMLInputElement | null); try { await api(`/docs/${serverId}/members`, { body: { email, role } }); setEmail(''); await load(); toast('Invitation added'); } catch (e) { toast((e as Error).message); } input?.focus(); }}>Invite</button>
       </div>
       <div className="label">People with access</div>
       {members.map((m) => (

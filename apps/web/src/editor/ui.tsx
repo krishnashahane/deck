@@ -46,7 +46,7 @@ export function Popover({ trigger, children, align = 'start', width }: { trigger
     <>
       <span ref={anchor} style={{ display: 'inline-flex' }}>{trigger(() => setOpen((o) => !o), open)}</span>
       {open && createPortal(
-        <div ref={menu} className="menu" role="menu" style={{ left: pos.x, top: pos.y, width }} onKeyDown={(e) => e.stopPropagation()}>
+        <div ref={menu} className="menu" role="menu" style={{ left: pos.x, top: pos.y, width }} onKeyDown={(e) => { if (e.key === 'Escape') setOpen(false); e.stopPropagation(); }}>
           {children(() => setOpen(false))}
         </div>,
         document.body,
@@ -162,7 +162,7 @@ export function Dialog({ title, onClose, children, footer, width }: { title: Rea
   }, [onClose]);
   return createPortal(
     <div className="scrim" onPointerDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div ref={ref} className="dialog" role="dialog" aria-modal="true" aria-label={typeof title === 'string' ? title : undefined} style={width ? { width: `min(${width}px, calc(100vw - 32px))` } : undefined} onKeyDown={(e) => e.stopPropagation()}>
+      <div ref={ref} className="dialog" role="dialog" aria-modal="true" aria-label={typeof title === 'string' ? title : undefined} style={width ? { width: `min(${width}px, calc(100vw - 32px))` } : undefined} onKeyDown={(e) => { if (e.key === 'Escape') onClose(); e.stopPropagation(); }}>
         <header>
           <h2>{title}</h2>
           <span className="spacer" />
