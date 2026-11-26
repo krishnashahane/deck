@@ -287,3 +287,64 @@ test('find and replace across slides, one undo step', async ({ page }) => {
   await panel.getByRole('button', { name: 'Next match' }).click();
   await expect(page.getByRole('option', { name: /Slide 2/ })).toHaveAttribute('aria-selected', 'true');
 });
+
+test('right-click menu, format painter and slide sorter', async ({ page }) => {
+  await newFromTemplate(page, /^Blank$/);
+  const n0 = await elCount(page);
+
+  // Right-click on empty canvas → slide actions
+  const box = (await page.locator('.slide-host').boundingBox())!;
+  await page.mouse.click(box.x + 20, box.y + box.height - 20, { button: 'right' });
+  const slideMenu = page.getByRole('menu', { name: 'Slide actions' });
+  await expect(slideMenu).toBeVisible();
+  await expect(slideMenu.getByRole('menuitem').first()).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(slideMenu).toBeHidden();
+
+  // Right-click an object → object actions; Duplicate adds an element
+  const title = page.locator('.slide-host [data-el]').first();
+  const tb = (await title.boundingBox())!;
+  await page.mouse.click(tb.x + tb.width / 2, tb.y + tb.height / 2, { button: 'right' });
+  const objMenu = page.getByRole('menu', { name: 'Object actions' });
+  await expect(objMenu).toBeVisible();
+  const before = await elCount(page);
+  await objMenu.getByRole('menuitem', { name: /Duplicate/ }).click();
+  expect(await elCount(page)).toBe(before + 1);
+  expect(before).toBeGreaterThanOrEqual(n0);
+
+  // Format painter: make the selected copy bold via the context bar, then paint onto the original
+  await page.getByRole('button', { name: 'Bold' }).click();
+  const srcBoldClass = (await page.getByRole('button', { name: 'Bold' }).getAttribute('class')) ?? '';
+  const fontSel = page.getByLabel('Font', { exact: true });
+  await fontSel.selectOption({ index: 2 });
+  const painted = await fontSel.inputValue();
+  await page.getByRole('button', { name: 'Format painter' }).click();
+  await expect(page.locator('.painter-hint')).toBeVisible();
+  // the original sits underneath the offset duplicate: click its top-left corner area
+  await page.mouse.click(tb.x + 6, tb.y + 6);
+  await expect(page.locator('.painter-hint')).toBeHidden();
+  await expect(page.getByLabel('Font', { exact: true })).toHaveValue(painted);
+  await expect(page.getByRole('button', { name: 'Bold' })).toHaveClass(srcBoldClass);
+
+  // Slide sorter: add slides, reorder with keyboard, delete, undo
+  await page.locator('.stage').click({ position: { x: 5, y: 5 } });
+  await page.keyboard.press('Escape');
+  await page.keyboard.press('ControlOrMeta+Enter');
+  await page.keyboard.press('ControlOrMeta+Enter');
+  expect(await railCount(page)).toBe('3 slides');
+  await page.keyboard.press('ControlOrMeta+Alt+KeyS');
+  const sorter = page.getByRole('dialog', { name: 'Slide sorter' });
+  await expect(sorter).toBeVisible();
+  await expect(sorter.getByRole('option')).toHaveCount(3);
+  const first = sorter.getByRole('option').first();
+  await first.click();
+  const firstLabel = (await first.getAttribute('aria-label'))!.replace(/^Slide 1: /, '');
+  await page.keyboard.press('ControlOrMeta+ArrowRight');
+  await expect(sorter.getByRole('option').nth(1)).toHaveAttribute('aria-label', `Slide 2: ${firstLabel}`);
+  await page.keyboard.press('Delete');
+  await expect(sorter.getByRole('option')).toHaveCount(2);
+  await page.keyboard.press('ControlOrMeta+z');
+  await expect(sorter.getByRole('option')).toHaveCount(3);
+  await sorter.getByRole('button', { name: 'Done' }).click();
+  await expect(sorter).toBeHidden();
+});
