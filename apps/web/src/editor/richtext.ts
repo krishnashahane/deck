@@ -1,4 +1,15 @@
-import { UNITS_PER_POINT, type Paragraph, type TextRun, type TextStyle } from '@deck/core';
+import { UNITS_PER_POINT, safeHref, type Paragraph, type TextRun, type TextStyle } from '@deck/core';
+
+/* Values from the document (imports, collaborators) are untrusted: validate before they enter markup. */
+export const safeColor = (c: unknown): string | null => (typeof c === 'string' && /^#[0-9a-f]{3,8}$/i.test(c.trim()) ? c.trim() : null);
+export const safeNum = (v: unknown, d: number, min = -1e6, max = 1e6): number => {
+  const n = Number(v);
+  return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : d;
+};
+export const safeFont = (f: unknown): string | null => (typeof f === 'string' && f.length < 100 ? f.replace(/[^\p{L}\p{N} _.-]/gu, '') : null);
+const ALIGNS = new Set(['left', 'center', 'right', 'justify']);
+const safeAlign = (a: unknown, d: string) => (typeof a === 'string' && ALIGNS.has(a) ? a : d);
+const safeBullet = (b: unknown) => (b === 'bullet' || b === 'number' ? b : 'none');
 
 const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
@@ -6,19 +17,22 @@ const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replac
 export function toEditableHtml(paragraphs: Paragraph[], style: TextStyle): string {
   return paragraphs
     .map((p) => {
-      const size = (p.runs[0]?.size ?? style.size) * UNITS_PER_POINT;
+      const size = safeNum(p.runs[0]?.size ?? style.size, 24, 1, 2000) * UNITS_PER_POINT;
+      const lh = p.lineHeight !== undefined ? safeNum(p.lineHeight, 1.2, 0.1, 10) : undefined;
+      const sb = safeNum(p.spaceBefore ?? 0, 0, 0, 1000), sa = safeNum(p.spaceAfter ?? 0, 0, 0, 1000);
+      const align = p.align ? safeAlign(p.align, 'left') : undefined;
       const attrs = [
-        `data-bullet="${p.bullet ?? 'none'}"`,
-        `data-level="${p.level ?? 0}"`,
-        p.lineHeight ? `data-lh="${p.lineHeight}"` : '',
-        p.spaceBefore ? `data-sb="${p.spaceBefore}"` : '',
-        p.spaceAfter ? `data-sa="${p.spaceAfter}"` : '',
-        p.align ? `data-align="${p.align}"` : '',
+        `data-bullet="${safeBullet(p.bullet)}"`,
+        `data-level="${safeNum(p.level ?? 0, 0, 0, 8)}"`,
+        lh ? `data-lh="${lh}"` : '',
+        sb ? `data-sb="${sb}"` : '',
+        sa ? `data-sa="${sa}"` : '',
+        align ? `data-align="${align}"` : '',
       ].filter(Boolean).join(' ');
       const css = [
-        `text-align:${p.align ?? style.align}`,
-        `line-height:${p.lineHeight ?? style.lineHeight}`,
-        `margin:${(p.spaceBefore ?? 0) * UNITS_PER_POINT}px 0 ${(p.spaceAfter ?? 0) * UNITS_PER_POINT}px`,
+        `text-align:${align ?? safeAlign(style.align, 'left')}`,
+        `line-height:${lh ?? safeNum(style.lineHeight, 1.2, 0.1, 10)}`,
+        `margin:${sb * UNITS_PER_POINT}px 0 ${sa * UNITS_PER_POINT}px`,
         `--ind:${size * 1.1}px`,
       ].join(';');
       const runs = p.runs.filter((r) => r.text).map((r) => {
@@ -27,12 +41,14 @@ export function toEditableHtml(paragraphs: Paragraph[], style: TextStyle): strin
         if (r.italic !== undefined) s.push(`font-style:${r.italic ? 'italic' : 'normal'}`);
         const deco = [r.underline && 'underline', r.strike && 'line-through'].filter(Boolean).join(' ');
         if (deco) s.push(`text-decoration:${deco}`);
-        if (r.color) s.push(`color:${r.color}`);
-        if (r.size) s.push(`font-size:${r.size * UNITS_PER_POINT}px`);
-        if (r.font) s.push(`font-family:"${esc(r.font)}"`);
-        if (r.highlight) s.push(`background-color:${r.highlight}`);
-        const link = r.link ? ` data-link="${esc(r.link)}"` : '';
-        return `<span style="${s.join(';')}"${link}>${esc(r.text).replace(/\n/g, '<br>')}</span>`;
+        const color = safeColor(r.color), hl = safeColor(r.highlight), font = safeFont(r.font);
+        if (color) s.push(`color:${color}`);
+        if (r.size) s.push(`font-size:${safeNum(r.size, 24, 1, 2000) * UNITS_PER_POINT}px`);
+        if (font) s.push(`font-family:'${font}'`);
+        if (hl) s.push(`background-color:${hl}`);
+        const href = r.link ? safeHref(r.link) : null;
+        const link = href ? ` data-link="${esc(href)}"` : '';
+        return `<span style="${esc(s.join(';'))}"${link}>${esc(String(r.text)).replace(/\n/g, '<br>')}</span>`;
       }).join('');
       return `<p ${attrs} style="${css}">${runs || '<br>'}</p>`;
     })
