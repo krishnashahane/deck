@@ -249,3 +249,41 @@ test('equations render with the on-demand maths engine', async ({ page }) => {
   expect(await elCount(page)).toBe(before + 1);
   await expect(page.locator('.slide-host .katex').first()).toBeVisible();
 });
+
+test('find and replace across slides, one undo step', async ({ page }) => {
+  await newFromTemplate(page, /^Blank$/);
+  const title = page.locator('.slide-host [data-el]').first();
+  await title.dblclick({ force: true });
+  await page.keyboard.press('ControlOrMeta+a');
+  await page.keyboard.type('Alpha plan');
+  await page.keyboard.press('Escape');
+  await page.locator('.stage').click({ position: { x: 5, y: 5 } });
+  await page.getByRole('button', { name: 'Duplicate slide' }).click();
+  expect(await railCount(page)).toBe('2 slides');
+
+  await page.locator('.stage').click({ position: { x: 5, y: 5 } });
+  await page.keyboard.press('ControlOrMeta+Shift+h');
+  const panel = page.getByRole('search', { name: 'Find and replace' });
+  await expect(panel).toBeVisible();
+  await panel.getByLabel('Find', { exact: true }).fill('alpha');
+  await expect(panel.locator('.find-count')).toHaveText('1 of 2');
+  await panel.getByRole('button', { name: 'Match case' }).click();
+  await expect(panel.locator('.find-count')).toHaveText('No results');
+  await panel.getByRole('button', { name: 'Match case' }).click();
+  await panel.getByLabel('Replace with').fill('Beta');
+  await panel.getByRole('button', { name: 'Replace all' }).click();
+  await expect(panel.locator('.find-count')).toHaveText('No results');
+  await expect(page.locator('.slide-host > svg')).toContainText('Beta plan');
+
+  // Escape closes; a single undo restores both slides
+  await panel.getByLabel('Find', { exact: true }).press('Escape');
+  await expect(panel).toBeHidden();
+  await page.locator('.stage').click({ position: { x: 5, y: 5 } });
+  await page.keyboard.press('ControlOrMeta+z');
+  await expect(page.locator('.slide-host > svg')).toContainText('Alpha plan');
+  await page.keyboard.press('ControlOrMeta+f');
+  await panel.getByLabel('Find', { exact: true }).fill('Alpha');
+  await expect(panel.locator('.find-count')).toHaveText('1 of 2');
+  await panel.getByRole('button', { name: 'Next match' }).click();
+  await expect(page.getByRole('option', { name: /Slide 2/ })).toHaveAttribute('aria-selected', 'true');
+});
