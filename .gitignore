@@ -11,3 +11,5 @@ playwright-report/
 .interop/
 test-results/
 playwright-report/
+.vercel
+.env*
