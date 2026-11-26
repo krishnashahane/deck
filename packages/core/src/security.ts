@@ -1,4 +1,4 @@
-import JSZip from 'jszip';
+import type JSZip from 'jszip';
 import { parseXml, serialize, type XNode } from './xml';
 
 /* ───────────── content sniffing ───────────── */
@@ -94,7 +94,8 @@ interface ZipEntryInternals {
  */
 export async function openZipSafely(bytes: Uint8Array, limits: ZipLimits = DEFAULT_ZIP_LIMITS): Promise<SafeZip> {
   if (sniff(bytes) !== 'application/zip') throw new UnsafeArchiveError('Not a ZIP package (content check failed)');
-  const zip = await JSZip.loadAsync(bytes, { checkCRC32: true, createFolders: false });
+  const { default: JSZipImpl } = await import('jszip');
+  const zip = await JSZipImpl.loadAsync(bytes, { checkCRC32: true, createFolders: false });
   const names = Object.keys(zip.files);
   if (names.length > limits.maxEntries) throw new UnsafeArchiveError(`Too many entries (${names.length})`);
   let total = 0;
