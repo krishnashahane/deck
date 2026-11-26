@@ -11,3 +11,4 @@ export { parseXml, UnsafeXmlError } from './xml';
 export { exportPptx, chartXml, type ExportOptions, type ExportResult } from './pptx/export';
 export { importPptx, resolvePart, type ImportResult } from './pptx/import';
 export { inspectPptx, type PackageReport } from './pptx/inspect';
+export * from './find';
